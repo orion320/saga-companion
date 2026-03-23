@@ -1,0 +1,16 @@
+{
+  "name": "saga-companion",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Open-source browser extension — security awareness and capture tool for your AI workspace.",
+  "license": "MIT",
+  "scripts": {
+    "build:chrome": "node scripts/build.js chrome",
+    "build:firefox": "node scripts/build.js firefox",
+    "build:safari": "node scripts/build.js safari",
+    "build:all": "node scripts/build.js all",
+    "dev": "node scripts/dev.js",
+    "lint": "eslint src/",
+    "test": "node --test tests/"
+  }
+}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saga Companion</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Tier: Configuration -->
+    <section id="config-tier" class="tier">
+      <header class="tier-header">
+        <h1 class="app-title">Saga Companion</h1>
+      </header>
+
+      <div id="connection-status" class="status-row">
+        <span class="status-dot disconnected"></span>
+        <span id="connection-label">Not connected</span>
+      </div>
+
+      <div id="token-status" class="status-row" style="display: none;">
+        <span id="token-label">Token: ----</span>
+        <span id="token-expiry" class="dim"></span>
+      </div>
+
+      <div class="section-header">Security</div>
+      <div class="security-grid">
+        <div class="security-item">
+          <span class="security-icon">Phishing</span>
+          <span id="phishing-status" class="security-value">monitoring</span>
+        </div>
+        <div class="security-item">
+          <span class="security-icon">Trackers</span>
+          <span id="tracker-count" class="security-value">0 observed</span>
+        </div>
+        <div class="security-item">
+          <span class="security-icon">Privacy</span>
+          <span id="privacy-status" class="security-value">monitoring</span>
+        </div>
+        <div class="security-item">
+          <span class="security-icon">Alerts</span>
+          <span id="alert-count" class="security-value">0 new</span>
+        </div>
+      </div>
+
+      <div id="page-analysis" class="page-section" style="display: none;">
+        <div class="section-header">This Page</div>
+        <div id="page-details" class="dim"></div>
+      </div>
+    </section>
+
+    <!-- Divider -->
+    <div class="tier-divider"></div>
+
+    <!-- Bottom Tier: Captures -->
+    <section id="capture-tier" class="tier">
+      <div class="section-header">Captures</div>
+
+      <div id="capture-actions" class="capture-grid">
+        <button class="capture-btn" id="btn-screenshot" title="Screenshot with annotation">
+          <span class="capture-btn-icon">Screenshot</span>
+        </button>
+        <button class="capture-btn" id="btn-record" title="Screen recording with audio">
+          <span class="capture-btn-icon">Record</span>
+        </button>
+        <button class="capture-btn" id="btn-text" title="Capture selected text">
+          <span class="capture-btn-icon">Text</span>
+        </button>
+        <button class="capture-btn" id="btn-page" title="Capture full page">
+          <span class="capture-btn-icon">Page</span>
+        </button>
+      </div>
+
+      <div id="capture-disabled" class="capture-disabled" style="display: none;">
+        Connect to Saga to capture.
+      </div>
+
+      <div class="section-header">Recent</div>
+      <div id="recent-captures" class="recent-list">
+        <div class="empty-state">No captures yet</div>
+      </div>
+
+      <a id="view-in-saga" class="view-link" style="display: none;">
+        View all in Saga
+      </a>
+    </section>
+  </div>
+
+  <script src="sidepanel.js" type="module"></script>
+</body>
+</html>

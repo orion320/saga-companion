@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "Saga Companion",
+  "version": "0.1.0",
+  "description": "Security awareness and capture tool. Protects your browsing. Captures anything for your AI workspace.",
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "sidePanel",
+    "webRequest",
+    "cookies",
+    "alarms"
+  ],
+
+  "optional_permissions": [
+    "tabCapture",
+    "offscreen"
+  ],
+
+  "host_permissions": [
+    "http://127.0.0.1:*/*"
+  ],
+
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+
+  "action": {
+    "default_title": "Saga Companion",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "48": "assets/icons/icon-48.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/security/phishing.js", "content/security/trackers.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["content/capture/screenshot-overlay.html", "content/capture/screenshot-overlay.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
