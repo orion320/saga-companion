@@ -28,20 +28,23 @@ export async function getSagaUrl() {
  * @param {string} [capture.screenshot] - Base64 WebP image data
  * @param {Blob} [capture.recording] - Video/audio blob
  * @param {object} [destination] - Where to route (defaults to captures folder)
+ * @param {object} [options]
+ * @param {string} [options.cefNonce] — CEF nonce value (replaces boolean insideCef)
  * @returns {Promise<{ success: boolean, error?: string }>}
  */
-export async function sendCapture(capture, destination) {
+export async function sendCapture(capture, destination, options = {}) {
   const sagaUrl = await getSagaUrl();
-  const token = await getToken();
+  const cefNonce = options.cefNonce || null;
+  const token = cefNonce ? null : await getToken();
 
-  if (!token) {
+  if (!cefNonce && !token) {
     return { success: false, error: 'No token — open Saga to generate one' };
   }
 
   const payload = {
     capture: {
       ...capture,
-      captured_at: new Date().toISOString(),
+      captured_at: capture.captured_at || new Date().toISOString(),
     },
     destination: destination || { type: 'captures' },
   };
@@ -51,7 +54,8 @@ export async function sendCapture(capture, destination) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(cefNonce ? { 'X-Saga-CEF': cefNonce } : {}),
       },
       body: JSON.stringify(payload),
     });

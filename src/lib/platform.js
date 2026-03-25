@@ -40,13 +40,12 @@ export const HAS_SCREENSHOT = true;
 
 /**
  * Whether running inside Saga's CEF shell (auto-loaded extension).
- * CEF sets a custom header and the extension detects it via a cookie
- * or environment marker.
+ * CEF injects a random nonce into `data-saga-cef-nonce` on the document
+ * element. The nonce is required in the `X-Saga-CEF` header for auth bypass.
  */
 export function isInsideCEF() {
   try {
-    return document.documentElement.dataset.sagaCef === '1' ||
-      navigator.userAgent.includes('SagaCEF');
+    return Boolean(document.documentElement.dataset.sagaCefNonce);
   } catch {
     return false;
   }

@@ -1,35 +1,34 @@
 /**
  * Saga Companion — Side Panel Logic
  *
- * Two-tier UI:
- *   Top:    Configuration — connection status, token, security dashboard
- *   Bottom: Captures — action buttons, recent captures list
+ * Shows connection/token state, current-page security state, and the recent
+ * captures acknowledged by the background worker.
  */
 
-import { isSagaReachable } from '../lib/api.js';
+import { getSagaUrl, isSagaReachable } from '../lib/api.js';
 import { checkTokenStatus, getToken } from '../lib/token.js';
-
-// ── State ───────────────────────────────────────────────────
 
 let connected = false;
 let tokenValid = false;
 let recentCaptures = [];
-
-// ── DOM References ──────────────────────────────────────────
+let currentTrackerSummary = null;
+let alertTotal = 0;
 
 const connectionDot = document.querySelector('#connection-status .status-dot');
 const connectionLabel = document.getElementById('connection-label');
 const tokenRow = document.getElementById('token-status');
 const tokenLabel = document.getElementById('token-label');
 const tokenExpiry = document.getElementById('token-expiry');
+const trackerCount = document.getElementById('tracker-count');
+const alertCount = document.getElementById('alert-count');
 const captureActions = document.getElementById('capture-actions');
 const captureDisabled = document.getElementById('capture-disabled');
 const recentList = document.getElementById('recent-captures');
 const viewLink = document.getElementById('view-in-saga');
+const pageAnalysis = document.getElementById('page-analysis');
+const pageDetails = document.getElementById('page-details');
 
 const captureButtons = captureActions.querySelectorAll('.capture-btn');
-
-// ── Connection Check ────────────────────────────────────────
 
 async function checkConnection() {
   connected = await isSagaReachable();
@@ -38,18 +37,15 @@ async function checkConnection() {
   connectionLabel.textContent = connected ? 'Connected to Saga' : 'Saga not running';
 
   if (connected) {
-    const sagaUrl = 'http://127.0.0.1:8420'; // TODO: make configurable
+    const sagaUrl = await getSagaUrl();
     const status = await checkTokenStatus(sagaUrl);
     tokenValid = status.valid;
-
     tokenRow.style.display = 'flex';
 
     if (status.valid) {
       const token = await getToken();
       tokenLabel.textContent = `Token: ${maskToken(token)}`;
-      tokenExpiry.textContent = status.expiresAt
-        ? `expires ${formatRelative(status.expiresAt)}`
-        : '';
+      tokenExpiry.textContent = status.expiresAt ? `expires ${formatRelative(status.expiresAt)}` : '';
       connectionDot.className = 'status-dot connected';
     } else if (status.error === 'Saga not reachable') {
       tokenRow.style.display = 'none';
@@ -66,21 +62,16 @@ async function checkConnection() {
   updateCaptureState();
 }
 
-// ── Capture State ───────────────────────────────────────────
-
 function updateCaptureState() {
   const enabled = connected && tokenValid;
-
   captureActions.style.display = enabled ? 'grid' : 'none';
   captureDisabled.style.display = enabled ? 'none' : 'block';
-  viewLink.style.display = enabled ? 'block' : 'none';
+  viewLink.style.display = connected ? 'block' : 'none';
 
-  for (const btn of captureButtons) {
-    btn.disabled = !enabled;
+  for (const button of captureButtons) {
+    button.disabled = !enabled;
   }
 }
-
-// ── Capture Buttons ─────────────────────────────────────────
 
 document.getElementById('btn-screenshot').addEventListener('click', () => {
   chrome.runtime.sendMessage({ action: 'capture-screenshot' });
@@ -104,7 +95,15 @@ document.getElementById('btn-page').addEventListener('click', async () => {
   }
 });
 
-// ── Recent Captures ─────────────────────────────────────────
+viewLink.addEventListener('click', async (event) => {
+  event.preventDefault();
+  if (!connected) {
+    return;
+  }
+
+  const sagaUrl = await getSagaUrl();
+  await chrome.tabs.create({ url: sagaUrl });
+});
 
 function renderRecent() {
   recentList.textContent = '';
@@ -117,7 +116,7 @@ function renderRecent() {
     return;
   }
 
-  for (const cap of recentCaptures.slice(0, 8)) {
+  for (const capture of recentCaptures.slice(0, 8)) {
     const item = document.createElement('div');
     item.className = 'recent-item';
 
@@ -126,50 +125,97 @@ function renderRecent() {
 
     const title = document.createElement('div');
     title.className = 'recent-item-title';
-    title.textContent = cap.title || 'Untitled capture';
+    title.textContent = capture.title || 'Untitled capture';
 
     const meta = document.createElement('div');
     meta.className = 'recent-item-meta';
-    meta.textContent = `${cap.source} \u00B7 ${formatRelative(cap.captured_at)}`;
-
-    info.appendChild(title);
-    info.appendChild(meta);
+    meta.textContent = `${capture.source || 'unknown'} · ${formatRelative(capture.captured_at)}`;
 
     const badge = document.createElement('span');
     badge.className = 'recent-item-badge';
-    badge.textContent = cap.capture_type || 'capture';
+    badge.textContent = capture.capture_type || 'capture';
 
+    info.appendChild(title);
+    info.appendChild(meta);
     item.appendChild(info);
     item.appendChild(badge);
     recentList.appendChild(item);
   }
 }
 
-// ── Messages from Background/Content ────────────────────────
+function renderTrackerSummary(summary) {
+  currentTrackerSummary = summary;
+
+  if (!summary) {
+    trackerCount.textContent = 'monitoring';
+    pageAnalysis.style.display = 'none';
+    return;
+  }
+
+  trackerCount.textContent = `${summary.totalObserved || 0} observed`;
+  pageAnalysis.style.display = 'block';
+
+  if (!summary.totalObserved) {
+    pageDetails.textContent = 'No known third-party trackers observed on this page yet.';
+    return;
+  }
+
+  const parts = [];
+  const uniqueHosts = summary.uniqueHosts?.length || 0;
+  const vendors = (summary.topVendors || []).map((item) => item.vendor).join(', ');
+
+  parts.push(`${summary.totalObserved} requests across ${uniqueHosts} tracker domains.`);
+  if (vendors) {
+    parts.push(`Top vendors: ${vendors}.`);
+  }
+  if (summary.pageHost) {
+    parts.push(`Page: ${summary.pageHost}.`);
+  }
+
+  pageDetails.textContent = parts.join(' ');
+}
+
+function renderAlerts() {
+  alertCount.textContent = `${alertTotal} new`;
+  alertCount.style.color = alertTotal > 0 ? '#e74c3c' : '#27ae60';
+}
+
+async function refreshRecentCaptures() {
+  const response = await chrome.runtime.sendMessage({ action: 'get-recent-captures' });
+  recentCaptures = Array.isArray(response?.captures) ? response.captures : [];
+  renderRecent();
+}
+
+async function refreshTrackerSummary() {
+  const response = await chrome.runtime.sendMessage({ action: 'get-active-tab-summary' });
+  renderTrackerSummary(response?.summary || null);
+}
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === 'refresh-recent') {
-    // TODO: fetch recent captures from Saga
-    renderRecent();
+  if (message.action === 'capture-complete') {
+    if (message.capture) {
+      recentCaptures = [message.capture, ...recentCaptures].slice(0, 8);
+      renderRecent();
+    } else {
+      void refreshRecentCaptures();
+    }
+  }
+
+  if (message.action === 'tracker-summary-updated') {
+    renderTrackerSummary(message.summary || null);
   }
 
   if (message.action === 'security-finding') {
-    updateSecurityDisplay(message);
+    alertTotal += Array.isArray(message.findings) ? message.findings.length : 1;
+    renderAlerts();
   }
 });
 
-function updateSecurityDisplay(message) {
-  const alertCount = document.getElementById('alert-count');
-  const current = parseInt(alertCount.textContent) || 0;
-  alertCount.textContent = `${current + message.findings.length} new`;
-  alertCount.style.color = '#e74c3c';
-}
-
-// ── Helpers ─────────────────────────────────────────────────
-
 function maskToken(token) {
-  if (!token) return '----';
-  return token.slice(0, 10) + '\u2026';
+  if (!token) {
+    return '----';
+  }
+  return `${token.slice(0, 10)}…`;
 }
 
 function formatRelative(dateStr) {
@@ -178,7 +224,6 @@ function formatRelative(dateStr) {
     const diff = date.getTime() - Date.now();
 
     if (diff > 0) {
-      // Future (expiry)
       const days = Math.floor(diff / 86400000);
       const hours = Math.floor((diff % 86400000) / 3600000);
       if (days > 0) return `in ${days}d`;
@@ -186,7 +231,6 @@ function formatRelative(dateStr) {
       return 'soon';
     }
 
-    // Past
     const ago = Math.abs(diff);
     const mins = Math.floor(ago / 60000);
     const hours = Math.floor(ago / 3600000);
@@ -200,10 +244,13 @@ function formatRelative(dateStr) {
   }
 }
 
-// ── Init ────────────────────────────────────────────────────
-
-checkConnection();
+renderAlerts();
 renderRecent();
+void checkConnection();
+void refreshRecentCaptures();
+void refreshTrackerSummary();
 
-// Re-check connection every 30 seconds
-setInterval(checkConnection, 30_000);
+setInterval(() => {
+  void checkConnection();
+  void refreshTrackerSummary();
+}, 30000);

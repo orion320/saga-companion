@@ -25,6 +25,7 @@
   ],
 
   "host_permissions": [
+    "<all_urls>",
     "http://127.0.0.1:*/*"
   ],
 
@@ -47,15 +48,21 @@
 
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/security/phishing.js", "content/security/trackers.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "js": [
+        "content/shared.js",
+        "content/security/phishing.js",
+        "content/security/trackers.js",
+        "content/capture/text-capture.js",
+        "content/capture/screenshot-overlay.js"
+      ],
       "run_at": "document_idle"
     }
   ],
 
   "web_accessible_resources": [
     {
-      "resources": ["content/capture/screenshot-overlay.html", "content/capture/screenshot-overlay.css"],
+      "resources": ["content/capture/screenshot-overlay.css"],
       "matches": ["<all_urls>"]
     }
   ]
